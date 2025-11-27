@@ -1,0 +1,518 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>OpenSea Bot Monitor</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: #fff;
+            padding: 20px;
+            min-height: 100vh;
+        }
+
+        .container {
+            max-width: 1400px;
+            margin: 0 auto;
+        }
+
+        h1 {
+            text-align: center;
+            margin-bottom: 30px;
+            font-size: 2.5em;
+            text-shadow: 2px 2px 4px rgba(0, 0, 0, 0.3);
+        }
+
+        .status-bar {
+            background: rgba(255, 255, 255, 0.1);
+            backdrop-filter: blur(10px);
+            border-radius: 15px;
+            padding: 15px 25px;
+            margin-bottom: 20px;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            box-shadow: 0 8px 32px rgba(0, 0, 0, 0.1);
+        }
+
+        .status-indicator {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+        }
+
+        .status-dot {
+            width: 12px;
+            height: 12px;
+            border-radius: 50%;
+            background: #4ade80;
+            animation: pulse 2s infinite;
+        }
+
+        @keyframes pulse {
+
+            0%,
+            100% {
+                opacity: 1;
+            }
+
+            50% {
+                opacity: 0.5;
+            }
+        }
+
+        .grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
+            gap: 20px;
+            margin-bottom: 20px;
+        }
+
+        .card {
+            background: rgba(255, 255, 255, 0.15);
+            backdrop-filter: blur(10px);
+            border-radius: 15px;
+            padding: 25px;
+            box-shadow: 0 8px 32px rgba(0, 0, 0, 0.1);
+            border: 1px solid rgba(255, 255, 255, 0.2);
+        }
+
+        .card h2 {
+            font-size: 1.2em;
+            margin-bottom: 15px;
+            opacity: 0.9;
+        }
+
+        .metric {
+            font-size: 2em;
+            font-weight: bold;
+            margin: 10px 0;
+        }
+
+        .label {
+            font-size: 0.9em;
+            opacity: 0.8;
+        }
+
+        .activity-log {
+            background: rgba(255, 255, 255, 0.15);
+            backdrop-filter: blur(10px);
+            border-radius: 15px;
+            padding: 25px;
+            box-shadow: 0 8px 32px rgba(0, 0, 0, 0.1);
+            border: 1px solid rgba(255, 255, 255, 0.2);
+            max-height: 400px;
+            overflow-y: auto;
+        }
+
+        .activity-log h2 {
+            margin-bottom: 15px;
+        }
+
+        .log-entry {
+            padding: 10px;
+            margin: 5px 0;
+            background: rgba(255, 255, 255, 0.1);
+            border-radius: 8px;
+            font-size: 0.9em;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+
+        .log-entry.success {
+            border-left: 3px solid #4ade80;
+        }
+
+        .log-entry.error {
+            border-left: 3px solid #f87171;
+        }
+
+        .log-entry.info {
+            border-left: 3px solid #60a5fa;
+        }
+
+        .timestamp {
+            font-size: 0.8em;
+            opacity: 0.7;
+        }
+
+        .activity-log::-webkit-scrollbar {
+            width: 8px;
+        }
+
+        .activity-log::-webkit-scrollbar-track {
+            background: rgba(255, 255, 255, 0.1);
+            border-radius: 10px;
+        }
+
+        .activity-log::-webkit-scrollbar-thumb {
+            background: rgba(255, 255, 255, 0.3);
+            border-radius: 10px;
+        }
+
+        .activity-log::-webkit-scrollbar-thumb:hover {
+            background: rgba(255, 255, 255, 0.5);
+        }
+
+        .control-btn {
+            padding: 8px 16px;
+            border: none;
+            border-radius: 8px;
+            background: rgba(255, 255, 255, 0.2);
+            color: white;
+            cursor: pointer;
+            font-weight: 600;
+            transition: all 0.3s;
+        }
+
+        .control-btn:hover {
+            background: rgba(255, 255, 255, 0.3);
+            transform: translateY(-2px);
+        }
+
+        .control-btn.stop {
+            background: rgba(239, 68, 68, 0.3);
+        }
+
+        .control-btn.stop:hover {
+            background: rgba(239, 68, 68, 0.5);
+        }
+
+        .toggle-switch {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            position: relative;
+        }
+
+        .toggle-switch input[type="checkbox"] {
+            opacity: 0;
+            width: 0;
+            height: 0;
+        }
+
+        .slider {
+            position: relative;
+            display: inline-block;
+            width: 50px;
+            height: 24px;
+            background-color: rgba(255, 255, 255, 0.2);
+            border-radius: 24px;
+            cursor: pointer;
+            transition: 0.3s;
+        }
+
+        .slider:before {
+            content: "";
+            position: absolute;
+            height: 18px;
+            width: 18px;
+            left: 3px;
+            bottom: 3px;
+            background-color: white;
+            border-radius: 50%;
+            transition: 0.3s;
+        }
+
+        input:checked+.slider {
+            background-color: #4ade80;
+        }
+
+        input:checked+.slider:before {
+            transform: translateX(26px);
+        }
+
+        .toggle-label {
+            font-weight: 600;
+            font-size: 0.9em;
+        }
+    </style>
+</head>
+
+<body>
+    <div class="container">
+        <h1>🤖 OpenSea Bot Monitor</h1>
+
+        <div class="status-bar">
+            <div class="status-indicator">
+                <div class="status-dot"></div>
+                <span id="status-text">Connected</span>
+            </div>
+            <div style="display: flex; gap: 10px; align-items: center;">
+                <button id="cancel-btn" class="control-btn">Cancel All Offers</button>
+                <button id="stop-btn" class="control-btn stop">Stop Bot</button>
+                <div id="last-update">Last update: Never</div>
+            </div>
+        </div>
+
+        <!-- Feature Toggles -->
+        <div class="card" style="margin-bottom: 20px;">
+            <h2>⚙️ Feature Controls</h2>
+            <div style="display: flex; gap: 20px; flex-wrap: wrap;">
+                <label class="toggle-switch">
+                    <input type="checkbox" id="toggle-offers" checked>
+                    <span class="slider"></span>
+                    <span class="toggle-label">Place Offers</span>
+                </label>
+                <label class="toggle-switch">
+                    <input type="checkbox" id="toggle-harvest">
+                    <span class="slider"></span>
+                    <span class="toggle-label">Harvest Listing</span>
+                </label>
+                <label class="toggle-switch">
+                    <input type="checkbox" id="toggle-sniper" checked>
+                    <span class="slider"></span>
+                    <span class="toggle-label">Sniper Buy</span>
+                </label>
+                <label class="toggle-switch">
+                    <input type="checkbox" id="toggle-volume" checked>
+                    <span class="slider"></span>
+                    <span class="toggle-label">Volume Trading</span>
+                </label>
+            </div>
+        </div>
+
+        <div class="grid">
+            <div class="card">
+                <h2>💰 Floor Price</h2>
+                <div class="metric" id="floor-price">--</div>
+                <div class="label">Current floor</div>
+            </div>
+
+            <div class="card">
+                <h2>📈 Best Offer</h2>
+                <div class="metric" id="best-offer">--</div>
+                <div class="label">Highest bid</div>
+            </div>
+
+            <div class="card">
+                <h2>🎯 Your Offer</h2>
+                <div class="metric" id="your-offer">--</div>
+                <div class="label">Current bid</div>
+            </div>
+
+            <div class="card">
+                <h2>💎 Balance</h2>
+                <div class="metric" id="balance">--</div>
+                <div class="label">Wrapped tokens</div>
+            </div>
+        </div>
+
+        <div class="activity-log">
+            <h2>📋 Activity Log</h2>
+            <div id="log-container"></div>
+        </div>
+
+        <!-- Volume Trade History -->
+        <div class="card" style="margin-top: 20px;">
+            <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 15px;">
+                <h2>📜 Volume Trade History</h2>
+                <button id="refresh-trades-btn" class="control-btn" style="font-size: 0.8em;">Refresh</button>
+            </div>
+            <div style="overflow-x: auto;">
+                <table style="width: 100%; border-collapse: collapse; color: white;">
+                    <thead>
+                        <tr style="background: rgba(255,255,255,0.1); text-align: left;">
+                            <th style="padding: 10px;">Time</th>
+                            <th style="padding: 10px;">Token ID</th>
+                            <th style="padding: 10px;">Buy Price</th>
+                            <th style="padding: 10px;">Target List Price</th>
+                        </tr>
+                    </thead>
+                    <tbody id="trades-body">
+                        <!-- Trades will be populated here -->
+                    </tbody>
+                </table>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        const ws = new WebSocket('ws://localhost:3000');
+        const logContainer = document.getElementById('log-container');
+        const maxLogs = 50;
+
+        ws.onopen = () => {
+            document.getElementById('status-text').textContent = 'Connected';
+            addLog('Connected to bot', 'success');
+        };
+
+        ws.onclose = () => {
+            document.getElementById('status-text').textContent = 'Disconnected';
+            addLog('Disconnected from bot', 'error');
+        };
+
+        ws.onmessage = (event) => {
+            const data = JSON.parse(event.data);
+
+            if (data.type === 'stats') {
+                document.getElementById('floor-price').textContent = data.floorPrice || '--';
+                document.getElementById('best-offer').textContent = data.bestOffer || '--';
+                document.getElementById('your-offer').textContent = data.yourOffer || '--';
+                document.getElementById('balance').textContent = data.balance || '--';
+                document.getElementById('last-update').textContent = `Last update: ${new Date().toLocaleTimeString()}`;
+            } else if (data.type === 'log') {
+                addLog(data.message, data.level || 'info');
+            }
+        };
+
+        function addLog(message, level) {
+            const entry = document.createElement('div');
+            entry.className = `log-entry ${level}`;
+            entry.innerHTML = `
+                <span>${message}</span>
+                <span class="timestamp">${new Date().toLocaleTimeString()}</span>
+            `;
+            logContainer.insertBefore(entry, logContainer.firstChild);
+
+            // Keep only last N logs
+            while (logContainer.children.length > maxLogs) {
+                logContainer.removeChild(logContainer.lastChild);
+            }
+        }
+
+        // Button handlers
+        document.getElementById('cancel-btn').addEventListener('click', async () => {
+            if (confirm('Cancel all active offers?')) {
+                try {
+                    const response = await fetch('/api/cancel-offers', { method: 'POST' });
+                    const data = await response.json();
+                    addLog(data.message, 'info');
+                } catch (err) {
+                    addLog('Failed to cancel offers', 'error');
+                }
+            }
+        });
+
+        document.getElementById('stop-btn').addEventListener('click', async () => {
+            if (confirm('Stop the bot? This will exit the program.')) {
+                try {
+                    const response = await fetch('/api/stop', { method: 'POST' });
+                    const data = await response.json();
+                    addLog(data.message, 'info');
+                } catch (err) {
+                    addLog('Failed to stop bot', 'error');
+                }
+            }
+        });
+
+        // Toggle handlers
+        document.getElementById('toggle-offers').addEventListener('change', async (e) => {
+            const enabled = e.target.checked;
+            try {
+                const response = await fetch('/api/toggle-offers', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ enabled })
+                });
+                const data = await response.json();
+                addLog(data.message, 'info');
+            } catch (err) {
+                addLog('Failed to toggle offers', 'error');
+            }
+        });
+
+        document.getElementById('toggle-harvest').addEventListener('change', async (e) => {
+            const enabled = e.target.checked;
+            try {
+                const response = await fetch('/api/toggle-harvest', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ enabled })
+                });
+                const data = await response.json();
+                addLog(data.message, 'info');
+            } catch (err) {
+                addLog('Failed to toggle harvest', 'error');
+            }
+        });
+
+        document.getElementById('toggle-sniper').addEventListener('change', async (e) => {
+            const enabled = e.target.checked;
+            try {
+                const response = await fetch('/api/toggle-sniper', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ enabled })
+                });
+                const data = await response.json();
+                addLog(data.message, 'info');
+            } catch (err) {
+                addLog('Failed to toggle sniper', 'error');
+            }
+        });
+
+        document.getElementById('toggle-volume').addEventListener('change', async (e) => {
+            const enabled = e.target.checked;
+            try {
+                const response = await fetch('/api/toggle-volume', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ enabled })
+                });
+                const data = await response.json();
+                addLog(data.message, 'info');
+            } catch (err) {
+                addLog('Failed to toggle volume trading', 'error');
+            }
+        });
+
+        // Trade History Logic
+        async function fetchTrades() {
+            try {
+                const response = await fetch('/api/trades');
+                const data = await response.json();
+                if (data.success) {
+                    renderTrades(data.trades);
+                }
+            } catch (err) {
+                console.error('Failed to fetch trades:', err);
+            }
+        }
+
+        function renderTrades(trades) {
+            const tbody = document.getElementById('trades-body');
+            tbody.innerHTML = '';
+
+            if (trades.length === 0) {
+                tbody.innerHTML = '<tr><td colspan="4" style="padding: 15px; text-align: center; opacity: 0.7;">No volume trades recorded yet</td></tr>';
+                return;
+            }
+
+            trades.forEach(trade => {
+                const tr = document.createElement('tr');
+                tr.style.borderBottom = '1px solid rgba(255,255,255,0.1)';
+
+                const date = new Date(trade.purchaseTime).toLocaleString();
+                const listPrice = (trade.buyPrice * 1.015).toFixed(4);
+
+                tr.innerHTML = `
+                    <td style="padding: 10px; opacity: 0.8;">${date}</td>
+                    <td style="padding: 10px; font-weight: bold;">#${trade.tokenId}</td>
+                    <td style="padding: 10px;">${trade.buyPrice} ETH</td>
+                    <td style="padding: 10px;">${listPrice} ETH</td>
+                `;
+                tbody.appendChild(tr);
+            });
+        }
+
+        document.getElementById('refresh-trades-btn').addEventListener('click', fetchTrades);
+
+        // Initial load
+        fetchTrades();
+        // Refresh every 30 seconds
+        setInterval(fetchTrades, 30000);
+    </script>
+</body>
+
+</html>
