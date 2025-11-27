@@ -72,29 +72,19 @@ export const checkAndListPurchasedItems = async (
                     continue;
                 }
 
-
-                // ... (existing imports)
-
-                // ... inside checkAndListPurchasedItems loop ...
-
                 // Check if this is a volume trade item
                 const volumeTrade = getVolumeTrade(nft.contract, nft.identifier);
-                let listingPrice: number;
-                let expirationTime: number | undefined;
 
-                if (volumeTrade) {
-                    // It's a volume trade item, list at floor * 1.02
-                    listingPrice = floorPrice * 1.02;
-                    // Round to 6 decimals
-                    listingPrice = Math.round(listingPrice * 1000000) / 1000000;
-                    // Set expiration to 10 minutes from now
-                    expirationTime = Math.round(Date.now() / 1000 + 60 * 10);
-                    console.log(`Relisting volume trade item ${nft.identifier} at ${listingPrice.toFixed(6)} (floor * 1.02, expires in 10m)...`);
-                } else {
-                    // Standard listing logic
-                    listingPrice = calculateListingPrice(floorPrice, strategyConfig);
-                    console.log(`Listing ${nft.identifier} at ${listingPrice}...`);
+                if (!volumeTrade) {
+                    // Skip non-volume-trade items (they should be managed by harvest listing if enabled)
+                    continue;
                 }
+
+                // It's a volume trade item, list at floor * 1.02
+                const listingPrice = Math.round((floorPrice * 1.02) * 1000000) / 1000000;
+                const expirationTime = Math.round(Date.now() / 1000 + 60 * 10);
+
+                console.log(`Relisting volume trade item ${nft.identifier} at ${listingPrice.toFixed(6)} (floor * 1.02, expires in 10m)...`);
 
                 // Create listing with retry logic
                 let listed = false;
