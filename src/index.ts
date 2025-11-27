@@ -199,10 +199,8 @@ const main = async () => {
                 await volumeTrade(COLLECTION_SLUG, stats.floorPrice);
             }
 
-            // 5. Check for purchased items and auto-list (skip if volume trading is enabled, as it handles its own listing)
-            if (!isVolumeTradingEnabled()) {
-                await checkAndListPurchasedItems(COLLECTION_SLUG, stats.floorPrice, STRATEGY_CONFIG);
-            }
+            // 5. Check for purchased items and auto-list
+            await checkAndListPurchasedItems(COLLECTION_SLUG, stats.floorPrice, STRATEGY_CONFIG);
 
         } catch (error: any) {
             console.error('Error in monitoring loop:', error?.message || error);

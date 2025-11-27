@@ -11,6 +11,28 @@ let lastPurchasedNft: { tokenAddress: string; tokenId: string; listingPrice: num
 let lastPurchaseTime = 0;
 const PURCHASE_COOLDOWN_MS = 30000; // 30 seconds cooldown between purchases
 
+// Track recently purchased items to prevent immediate relisting (2 minute window)
+const recentlyPurchasedItems = new Map<string, number>();
+const RECENT_PURCHASE_WINDOW_MS = 2 * 60 * 1000; // 2 minutes
+
+export const wasRecentlyPurchased = (tokenAddress: string, tokenId: string): boolean => {
+    const key = `${tokenAddress.toLowerCase()}-${tokenId}`;
+    const purchaseTime = recentlyPurchasedItems.get(key);
+    if (purchaseTime && (Date.now() - purchaseTime < RECENT_PURCHASE_WINDOW_MS)) {
+        return true;
+    }
+    // Clean up old entries
+    if (purchaseTime && (Date.now() - purchaseTime >= RECENT_PURCHASE_WINDOW_MS)) {
+        recentlyPurchasedItems.delete(key);
+    }
+    return false;
+};
+
+const markAsRecentlyPurchased = (tokenAddress: string, tokenId: string) => {
+    const key = `${tokenAddress.toLowerCase()}-${tokenId}`;
+    recentlyPurchasedItems.set(key, Date.now());
+};
+
 export const volumeTrade = async (
     collectionSlug: string,
     floorPrice: number
@@ -159,6 +181,12 @@ export const volumeTrade = async (
                 listing.protocolData.parameters.offer[0].identifierOrCriteria,
                 price,
                 collectionSlug
+            );
+
+            // Mark as recently purchased to prevent immediate relisting
+            markAsRecentlyPurchased(
+                listing.protocolData.parameters.offer[0].token,
+                listing.protocolData.parameters.offer[0].identifierOrCriteria
             );
 
         } catch (buyErr: any) {

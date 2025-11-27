@@ -3,6 +3,7 @@ import { config } from './config';
 import { calculateListingPrice, StrategyConfig } from './strategy';
 import { getWethAddress } from './constants';
 import { getVolumeTrade } from './trade_tracker';
+import { wasRecentlyPurchased } from './volume';
 
 export const checkAndListPurchasedItems = async (
     collectionSlug: string,
@@ -36,6 +37,12 @@ export const checkAndListPurchasedItems = async (
         // Check each NFT to see if it's already listed
         for (const nft of collectionNfts) {
             try {
+                // Skip if this was just purchased (within 2 minutes)
+                if (wasRecentlyPurchased(nft.contract, nft.identifier)) {
+                    console.log(`Item ${nft.identifier} was recently purchased - skipping to avoid duplicate listing`);
+                    continue;
+                }
+
                 // Check if already listed via API
                 const response = await openseaSDK.api.getNFTListings(
                     nft.contract,
