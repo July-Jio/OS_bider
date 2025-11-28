@@ -5,6 +5,10 @@ import { getWethAddress } from './constants';
 import { getVolumeTrade } from './trade_tracker';
 import { wasRecentlyPurchased } from './volume';
 
+// Track recently created listings to prevent immediate relisting (15 minute window)
+const recentlyCreatedListings = new Map<string, number>();
+const LISTING_CACHE_DURATION_MS = 15 * 60 * 1000; // 15 minutes
+
 export const checkAndListPurchasedItems = async (
     collectionSlug: string,
     floorPrice: number,
@@ -40,6 +44,15 @@ export const checkAndListPurchasedItems = async (
                 // Skip if this was just purchased (within 2 minutes)
                 if (wasRecentlyPurchased(nft.contract, nft.identifier)) {
                     console.log(`Item ${nft.identifier} was recently purchased - skipping to avoid duplicate listing`);
+                    continue;
+                }
+
+                // Check local cache for recently created listings
+                const cacheKey = `${nft.contract.toLowerCase()}-${nft.identifier}`;
+                const cachedListingTime = recentlyCreatedListings.get(cacheKey);
+                if (cachedListingTime && (Date.now() - cachedListingTime < LISTING_CACHE_DURATION_MS)) {
+                    const minutesAgo = Math.floor((Date.now() - cachedListingTime) / 60000);
+                    console.log(`✓ Item ${nft.identifier} was listed ${minutesAgo} minute(s) ago (cached) - skipping`);
                     continue;
                 }
 
@@ -109,6 +122,11 @@ export const checkAndListPurchasedItems = async (
                         // `createListing` returns an OrderV2-like object with `orderHash`
                         console.log(`✓ Listed ${nft.identifier}`, created?.orderHash || '');
                         listed = true;
+
+                        // Add to cache to prevent immediate relisting
+                        const cacheKey = `${nft.contract.toLowerCase()}-${nft.identifier}`;
+                        recentlyCreatedListings.set(cacheKey, Date.now());
+
                         break; // Success
                     } catch (createErr: any) {
                         console.error(`✗ Failed to create listing for ${nft.identifier} (Attempt ${attempt}/3):`, createErr?.message || createErr);
