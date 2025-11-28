@@ -44,6 +44,8 @@ export const checkAndListPurchasedItems = async (
                 }
 
                 // Check if already listed via API
+                console.log(`Checking listings for item ${nft.identifier} (${nft.contract})...`);
+
                 const response = await openseaSDK.api.getNFTListings(
                     nft.contract,
                     nft.identifier,
@@ -52,13 +54,16 @@ export const checkAndListPurchasedItems = async (
 
                 const listings = response.listings || [];
 
+                console.log(`API returned ${listings.length} listing(s) for item ${nft.identifier}`);
+
                 // Debug: Log what we got from the API
                 if (listings.length > 0) {
-                    console.log(`Item ${nft.identifier} has ${listings.length} listing(s) from API`);
                     listings.forEach((l: any, idx: number) => {
                         const maker = l.maker || l.offerer || l.protocol_data?.parameters?.offerer;
-                        console.log(`  Listing ${idx + 1}: maker=${maker}, isOurs=${maker?.toLowerCase() === accountAddress.toLowerCase()}`);
+                        console.log(`  Listing ${idx + 1}: maker=${maker}, ourAddress=${accountAddress}, isOurs=${maker?.toLowerCase() === accountAddress.toLowerCase()}`);
                     });
+                } else {
+                    console.log(`  No listings found via API for item ${nft.identifier} - will attempt to list`);
                 }
 
                 // Skip if already listed by us - check multiple possible field names
@@ -68,7 +73,7 @@ export const checkAndListPurchasedItems = async (
                 });
 
                 if (hasOurListing) {
-                    console.log(`Item ${nft.identifier} already listed (API confirmed) - skipping`);
+                    console.log(`✓ Item ${nft.identifier} already listed (API confirmed) - skipping`);
                     continue;
                 }
 

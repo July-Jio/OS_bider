@@ -36,7 +36,7 @@ const markAsRecentlyPurchased = (tokenAddress: string, tokenId: string) => {
 export const volumeTrade = async (
     collectionSlug: string,
     floorPrice: number
-): Promise<void> => {
+): Promise<boolean> => {
     try {
         const accountAddress = await wallet.getAddress();
         const nativeToken = getNativeTokenName(config.chain);
@@ -46,14 +46,14 @@ export const volumeTrade = async (
         if (timeSinceLastPurchase < PURCHASE_COOLDOWN_MS) {
             const remainingSeconds = Math.ceil((PURCHASE_COOLDOWN_MS - timeSinceLastPurchase) / 1000);
             console.log(`Volume Trading: Cooldown active - waiting ${remainingSeconds}s before next purchase`);
-            return;
+            return false;
         }
 
         // 1. Get contract address from collection
         const { nfts: collectionNfts } = await openseaSDK.api.getNFTsByCollection(collectionSlug);
         if (collectionNfts.length === 0) {
             console.log('No NFTs found in collection to determine contract address');
-            return;
+            return false;
         }
         const contractAddress = collectionNfts[0].contract;
 
@@ -74,7 +74,7 @@ export const volumeTrade = async (
             ownedFromCollection.forEach(nft => {
                 console.log(`  - Token ID: ${nft.identifier}`);
             });
-            return;
+            return false;
         }
 
         // 2. Find the cheapest listing (floor)
@@ -91,7 +91,7 @@ export const volumeTrade = async (
 
         if (listings.length === 0) {
             console.log('No listings found for volume trading');
-            return;
+            return false;
         }
 
         // Filter orders to those that match the collection contract address explicitly
@@ -108,7 +108,7 @@ export const volumeTrade = async (
 
         if (filtered.length === 0) {
             console.log('No matching collection listings after filtering by contract address');
-            return;
+            return false;
         }
 
         // Sort the matching listings by price (ascending)
@@ -127,14 +127,14 @@ export const volumeTrade = async (
         const tolerance = 0.01; // 1%
         if (price > floorPrice * (1 + tolerance)) {
             console.log(`Skipping volume trade - cheapest listing (${price}) is > ${tolerance * 100}% above provided floor (${floorPrice})`);
-            return;
+            return false;
         }
 
         // Ensure the listing is for the collection we intend to trade
         const listingTokenAddress = listing.protocolData?.parameters?.offer?.[0]?.token;
         if (listingTokenAddress && listingTokenAddress.toLowerCase() !== contractAddress.toLowerCase()) {
             console.log(`Skipping listing: token ${listingTokenAddress} does not match collection contract ${contractAddress}`);
-            return;
+            return false;
         }
 
         console.log(`Volume Trading: Cheapest collection listing is ${price} ${nativeToken} (floor: ${floorPrice})`);
@@ -142,7 +142,7 @@ export const volumeTrade = async (
 
         // Check balance and unwrap if needed
         const provider = wallet.provider;
-        if (!provider) return;
+        if (!provider) return false;
         const nativeBalance = await provider.getBalance(accountAddress);
         const nativeBalanceEth = parseFloat(ethers.formatEther(nativeBalance));
 
@@ -158,7 +158,7 @@ export const volumeTrade = async (
                     console.log(`✓ Unwrapped ${amountToUnwrap} ${nativeToken}`);
                 } catch (unwrapErr) {
                     console.error('Failed to unwrap:', unwrapErr);
-                    return;
+                    return false;
                 }
             }
         }
@@ -191,7 +191,7 @@ export const volumeTrade = async (
 
         } catch (buyErr: any) {
             console.error(`✗ Failed to buy cheapest listing:`, buyErr?.message || buyErr);
-            return;
+            return false;
         }
 
         // 3. List the item immediately
@@ -215,7 +215,7 @@ export const volumeTrade = async (
 
             if (hasOurListing) {
                 console.log(`✓ Volume Trade: Item ${tokenId} already listed - skipping duplicate listing`);
-                return;
+                return true; // Purchase was made, just listing was skipped
             }
         } catch (checkErr) {
             console.log('Could not check existing listings, proceeding with listing attempt...');
@@ -246,7 +246,10 @@ export const volumeTrade = async (
             console.log('You may need to list it manually later.');
         }
 
+        return true; // Purchase was successful
+
     } catch (error: any) {
         console.error('Error in volume trade:', error?.message || error);
+        return false;
     }
 };

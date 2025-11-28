@@ -195,12 +195,18 @@ const main = async () => {
             }
 
             // 5. Volume Trading
+            let volumeTradeMadePurchase = false;
             if (isVolumeTradingEnabled()) {
-                await volumeTrade(COLLECTION_SLUG, stats.floorPrice);
+                volumeTradeMadePurchase = await volumeTrade(COLLECTION_SLUG, stats.floorPrice);
             }
 
-            // 5. Check for purchased items and auto-list
-            await checkAndListPurchasedItems(COLLECTION_SLUG, stats.floorPrice, STRATEGY_CONFIG);
+            // 6. Check for purchased items and auto-list
+            // Skip if volume trading just made a purchase (API needs time to index the new listing)
+            if (!volumeTradeMadePurchase) {
+                await checkAndListPurchasedItems(COLLECTION_SLUG, stats.floorPrice, STRATEGY_CONFIG);
+            } else {
+                console.log('Skipping listing check this cycle - volume trade just made a purchase (will check next cycle)');
+            }
 
         } catch (error: any) {
             console.error('Error in monitoring loop:', error?.message || error);
